@@ -1,13 +1,14 @@
-
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_weather_app/models/weather_api.dart';
 import 'package:flutter_weather_app/colors/colors.dart';
 import 'package:flutter_weather_app/icons/icons.dart';
 import 'package:flutter_weather_app/services/weather_service.dart';
+import 'package:flutter_weather_app/widgets/forecast_card.dart';
+import 'package:flutter_weather_app/widgets/header.dart';
+import 'package:flutter_weather_app/widgets/info_card.dart';
 
 import '../loading/loading.page.dart';
-
 
 class WeatherHomePage extends StatefulWidget {
   const WeatherHomePage({super.key});
@@ -41,14 +42,15 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
 
     var hours = datetime[1].split(':');
     var turnInt = int.parse(hours[0]);
-    if(turnInt >= 19 || turnInt <= 5){
+    if (turnInt >= 19 || turnInt <= 5) {
       print(turnInt);
       setState(() {
+        isDay = false;
         isNight = true;
         defaultColor = nightappbarcolor;
       });
     }
-    if(turnInt > 5 && turnInt < 19){
+    if (turnInt > 5 && turnInt < 19) {
       setState(() {
         isNight = false;
         isDay = true;
@@ -61,18 +63,20 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
     setState(() {
       defaultColor = dayappbarcolor;
     });
-    if(weather.text == 'Partly cloud'){
+    if (weather.text == 'Sunny') {
+      setState(() {
+        loadingIcon = sunnyIcon;
+      });
+    }
+    if (weather.text == 'Overcast') {
+      setState(() {
+        loadingIcon = overcastDayIcon;
+      });
+    }
+    if (weather.text == 'Partly cloud') {
       setState(() {
         loadingIcon = partlyCloudDayIcon;
       });
-      if(weather.text == 'Sunday'){
-        setState(() {
-          loadingIcon = sunnyIcon;
-        });
-        if(weather.text == 'Overcast') {
-          loadingIcon = overcastDayIcon;
-        }
-      }
     }
   }
 
@@ -80,47 +84,104 @@ class _WeatherHomePageState extends State<WeatherHomePage> {
     setState(() {
       defaultColor = nightappbarcolor;
     });
-    if(weather.text == 'Partly cloud'){
+    if (weather.text == 'Partly cloud') {
       setState(() {
         loadingIcon = partlyCloudyIconNight;
       });
     }
-    if(weather.text == 'clear'){
+    if (weather.text == 'Clear') {
       setState(() {
         loadingIcon = clearNightIcon;
       });
     }
   }
 
-  void gethour(){
-    List datetime =  weather.date.split(' ');
-    var hours =  datetime[1].split(':');
+  void gethour() {
+    List datetime = weather.date.split(' ');
+    var hours = datetime[1].split(':');
     var turnInt = int.parse(hours[0]);
     setState(() {
       hour = turnInt;
     });
   }
 
-  @override 
-  void initState(){
+  @override
+  void initState() {
     getWeather();
-    Timer.periodic(const Duration(seconds: 2), (timer) {setDay(); });
-    Timer.periodic(const Duration(seconds: 2), (timer) {isDay ? day() : night(); });
-    Timer.periodic(const Duration(seconds: 3), (timer) {gethour(); });
-    Future.delayed(const Duration(seconds: 2), () async {
-      weatherService.getWeatherData;
+    Timer.periodic(Duration(seconds: 2), (timer) {
+      setDay();
+    });
+    Timer.periodic(Duration(seconds: 3), (timer) {
+      isDay ? day() : night();
+    });
+    Timer.periodic(Duration(seconds: 3), (timer) {
+      gethour();
+    });
+    Future.delayed(Duration(seconds: 2), () async {
+      await weatherService.getWeatherData;
       setState(() {
         isLoading = false;
       });
     });
     super.initState();
-  } 
-  
+  }
+
   @override
-  Widget build(BuildContext context)  =>
-    isLoading ? const LoadingPage() : Scaffold(
-      appBar: AppBar(
-      title: const Text('Home Page'),
-    ),
-  );
+  Widget build(BuildContext context) => isLoading
+      ? LoadingPage()
+      : Scaffold(
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(300),
+            child: Header(
+                city_name: weather.city,
+                state_name: weather.state,
+                temp: weather.temp,
+                descriptionIMG: loadingIcon,
+                description: weather.text,
+                backgroundColor: defaultColor),
+          ),
+          body: Container(
+            decoration: BoxDecoration(
+              gradient: isDay
+                  ? LinearGradient(
+                      begin: const Alignment(-1.5, 8),
+                      end: const Alignment(-1.5, -0.5),
+                      colors: [Colors.white, defaultColor],
+                    )
+                  : LinearGradient(
+                      begin: const Alignment(-1.5, 8),
+                      end: const Alignment(-1.5, -0.5),
+                      colors: [Colors.white, defaultColor],
+                    ),
+            ),
+            child: CustomScrollView(
+              slivers: <Widget>[
+                SliverToBoxAdapter(
+                  child: Container(
+                    height: 200,
+                    width: MediaQuery.of(context).size.width,
+                    color: const Color.fromARGB(0, 255, 255, 255),
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: weather.forecast.length - hour - 1,
+                      itemBuilder: (context, index) => SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 5),
+                        child: Center(
+                          child: ForecastCard(
+                              hour: weather.forecast[hour + index]['time'].toString().split(' ')[1],
+                              description: weather.forecast[hour + index]['condition']['text'],
+                              descriptionIMG: weather.forecast[hour + index]['condition']['icon'].toString().replaceAll('//', 'http://'),
+                              averageTemp: weather.forecast[hour + index]['temp_c']),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(child: InformartionsCard(humidity: weather.humidity, uvIndex: weather.uvIndex, wind: weather.wind)),
+              ],
+            ),
+          ),
+        );
 }
