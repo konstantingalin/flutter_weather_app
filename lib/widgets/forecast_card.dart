@@ -30,7 +30,7 @@ class ForecastCard extends StatelessWidget {
           Container(
             width: 70,
             height: 70,
-            color: Colors.black,
+            color: Color.fromARGB(0, 0, 0, 0),
             child: (Image.network(descriptionIMG, fit: BoxFit.cover,)),
           ),
           const SizedBox(height: 10,),
